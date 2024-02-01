@@ -7,6 +7,8 @@ from skimage.filters import frangi, gabor,hessian,meijering,sato
 from skimage import measure, morphology,filters
 import detect_face as dface
 
+#本文件与后端皱纹检测算法同步
+
 def testGabor(image):
     '''
     gabor滤波器对横向皱纹使用的参数frequency=0.085，theta=1.57
@@ -54,6 +56,8 @@ def testGabor(image):
     # g = cv.resize(g, (image_w, image_h))
     # 比较有用的参数修改sigmas，gama
     # sk_frangi_img2 = frangi(g, sigmas = (3, 10, 2.5), alpha = 0.5, beta = 0.95, gamma = 1.2)
+    sk_frangi_img = g.copy()
+    sk_frangi_img[:, :] = 0
     for the in (1.27, 1.57, 1.87):
 
         sk_gabor_img_1, sk_gabor_1 = gabor(g, frequency = 0.084, theta = the, sigma_x = 6.2)  # 1.77,1.37
@@ -124,7 +128,7 @@ def testGabor(image):
             # print(image_xc)
             image_xc[:, 1] = image_xc[:, 1] / image_xc[:, 0]
             image_xcs.append(image_xc.copy())
-        sk_frangi_img = sk_frangi_img2.copy()
+        sk_frangi_img[(sk_frangi_img == 255) | (sk_frangi_img2 == 255)] = 255
         wrikle_list = []
         for lis in image_xcs:
             wrikle = []
@@ -163,8 +167,9 @@ def testGabor(image):
     # print(wrinkle_count/400/500.0)
     # cv2.imshow("r1", mask_g)
     # cv2.waitKey(0)
-    wrinkle_count = np.count_nonzero(mask_g)
-    wrinkle_level = wrinkle_count / (image.shape[0] * image.shape[1]) / 0.13 * 100
+    # wrinkle_count = np.count_nonzero(mask_g)
+    wrinkle_count = np.count_nonzero(sk_frangi_img)
+    wrinkle_level = wrinkle_count / (image.shape[0] * image.shape[1]) / 0.11 * 100
     # print(wrinkle_count / (image.shape[0] * image.shape[1]))
     if wrinkle_level > 100:
         wrinkle_level = 100
@@ -503,6 +508,8 @@ def detect_wrinkle_using_mediapipe(image):
     fea1_ind = np.asarray(range(len(fea_all)))
     # fea1_pix = dface.getfacefea_pix(fea_all, fea1_ind)
     rgb_fea1 = dface.getdot2pic(fea_all, fea1_ind, image)
+    if len(fea_all)==500:
+        return image,(0,0,0,0,0)
     # rgb_fea1 = rgb_fea1  # [:,:,::-1]
     # cv2.namedWindow("result",cv2.WINDOW_KEEPRATIO)
     # cv2.imshow("result", rgb_fea1)
@@ -513,8 +520,12 @@ def detect_wrinkle_using_mediapipe(image):
     x2 = fea_all[fea1_ind[2]][0]
     y2 = fea_all[fea1_ind[0]][1]
     y1 = int(y2 - 2.1 * (y2 - fea_all[fea1_ind[1]][1]))
+    if y1<=0:
+        return image, (0, 0, 0, 0, 0)
     etou_image = image[y1:y2, x1:x2, :]
-    # cv2.imshow("result",etou_image)
+    if etou_image.shape[0]==0 or etou_image.shape[1]==0:
+        return image, (0, 0, 0, 0, 0)
+# cv2.imshow("result",etou_image)
     # cv2.waitKey(0)
     # cv2.imwrite(r"E:\faces\face\1.jpg",etou_image)
     etou_image,level1=testGabor(etou_image)
@@ -540,6 +551,8 @@ def detect_wrinkle_using_mediapipe(image):
     # cv2.imshow("result", lyanjiao_image)
     # cv2.waitKey(0)
     # cv2.imwrite(r"E:\faces\face\2.jpg", lyanjiao_image)
+    if lyanjiao_image.shape[0]==0 or lyanjiao_image.shape[1]==0:
+        return image, (0, 0, 0, 0, 0)
     lyanjiao_image,level2=detect_canthus_wrinkle(lyanjiao_image,lyanjiao_pix)
     image[y1:y2, x1:x2, :]=lyanjiao_image
     # rgb_fea1 = dface.getdot2pic(fea_all, lyanjiao_ind, image)
@@ -562,6 +575,8 @@ def detect_wrinkle_using_mediapipe(image):
     ryanjiao_pix[0:3] = (ryanjiao_pix[0:3] + ryanjiao_pix1[0:3]) / 2
     ryanjiao_pix[:,0]=ryanjiao_pix[:,0]-x1
     ryanjiao_pix[:,1]=ryanjiao_pix[:,1]-y1
+    if ryanjiao_image.shape[0]==0 or ryanjiao_image.shape[1]==0:
+        return image, (0, 0, 0, 0, 0)
     ryanjiao_image,level3=detect_canthus_wrinkle(ryanjiao_image,ryanjiao_pix)
     image[y1:y2, x1:x2, :]=ryanjiao_image
     # rgb_fea1 = dface.getdot2pic(fea_all, ryanjiao_ind, rgb_fea1)
@@ -579,6 +594,8 @@ def detect_wrinkle_using_mediapipe(image):
     # cv2.waitKey(0)
     # cv2.imwrite(r"E:\faces\face\4.jpg",llianjia_image)
     # ryanjiao_pix = dface.getfacefea_pix(fea_all, ryanjiao_list)
+    if llianjia_image.shape[0] == 0 or llianjia_image.shape[1] == 0:
+        return image, (0, 0, 0, 0, 0)
     llianjia_image,level4=detect_no_wrinkle(llianjia_image)
     image[y1:y2, x1:x2, :]=llianjia_image
 
@@ -593,6 +610,8 @@ def detect_wrinkle_using_mediapipe(image):
     # cv2.imshow("result", rlianjia_image)
     # cv2.waitKey(0)
     # cv2.imwrite(r"E:\faces\face\5.jpg",rlianjia_image)
+    if rlianjia_image.shape[0] == 0 or rlianjia_image.shape[1] == 0:
+        return image, (0, 0, 0, 0, 0)
     rlianjia_image,level5=detect_no_wrinkle(rlianjia_image,False)
     image[y1:y2, x1:x2, :]=rlianjia_image
     # cv2.imshow("result", image)
@@ -626,18 +645,28 @@ if __name__ == '__main__':
     # cv2.imshow("show", image1)
     # cv2.waitKey(0)
 
+    # path_face = r"E:\faces\20240118-100104.jpg"
+    path_face = r"E:\faces\20240118-114018.jpg"
+    image = cv2.imread(path_face, -1)
+    cv2.namedWindow("show", cv2.WINDOW_KEEPRATIO)
+    cv2.imshow("show", image)
+    cv2.waitKey(0)
+    image1, lev = detect_wrinkle_using_mediapipe(image)
+    cv2.imshow("show", image1)
+    cv2.waitKey(0)
+    print(lev)
 
-
-    for i in range(7):
-        path_face = r"E:\faces\\"+str(33+6)+".jpg"
-        image = cv2.imread(path_face, -1)
-        cv2.namedWindow("show", cv2.WINDOW_KEEPRATIO)
-        cv2.imshow("show", image)
-        cv2.waitKey(0)
-        image1,lev=detect_wrinkle_using_mediapipe(image)
-        cv2.imshow("show", image1)
-        cv2.waitKey(0)
-        print(lev)
+    # for i in range(7):
+    #     path_face = r"E:\faces\\"+str(33+i)+".jpg"
+    #     # path_face = r"E:\faces\20240116-155210.jpg"
+    #     image = cv2.imread(path_face, -1)
+    #     cv2.namedWindow("show", cv2.WINDOW_KEEPRATIO)
+    #     cv2.imshow("show", image)
+    #     cv2.waitKey(0)
+    #     image1,lev=detect_wrinkle_using_mediapipe(image)
+    #     cv2.imshow("show", image1)
+    #     cv2.waitKey(0)
+    #     print(lev)
 
     # # #test3
     # # path = "8.jpg

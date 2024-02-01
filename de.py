@@ -6,6 +6,7 @@ import numpy as np
 from skimage.filters import frangi, gabor,hessian,meijering,sato
 from skimage import measure, morphology,filters
 import detect_face as dface
+#算法试写、试调用的，合适了的算法需要移到wrinkle_detect.py文件
 
 def testGabor(image):
     '''
@@ -554,6 +555,7 @@ def testGabor3(image):
     filter_w = image_w / 12.5
     # print(image.shape)
     image1 = image.copy()
+    # image1=cv.cvtColor(image1,cv.COLOR_BGR2HSV)
     g = cv2.split(image1)[0]
     # frequency谐波函数的空间频率，以像素来表示,越小越能展示细节，theta滤波器方向
     cv2.imshow("result", g)
@@ -574,7 +576,9 @@ def testGabor3(image):
     # g[:, :] = (g[:, :] - min_v) * 255.0 / (max_v - min_v)
 
     mean_v = np.mean(g)
-    factor=0.2
+    #0.4可能会过检
+    factor=0.3
+
     g=g.astype(float)
     g[:,:]=(g[:,:]-mean_v)*factor+g[:,:]
 
@@ -584,15 +588,18 @@ def testGabor3(image):
     cv2.imshow("result", g)
     cv2.waitKey(0)
 
-    g = cv.medianBlur(g,5)
-    cv2.imshow("result", g)
-    cv2.waitKey(0)
+    # g = cv.medianBlur(g,3)
+    # cv2.imshow("result", g)
+    # cv2.waitKey(0)
 
     mask_g=g.copy()
     mask_g[:,:]=0
     # g = cv.resize(g, (image_w, image_h))
     #比较有用的参数修改sigmas，gama
     # sk_frangi_img2 = frangi(g, sigmas = (3, 10, 2.5), alpha = 0.5, beta = 0.95, gamma = 1.2)
+    # for the in (0.97,1.27,1.57,1.87,2.17):
+    sk_frangi_img = g.copy()
+    sk_frangi_img[:, :] = 0
     for the in (1.27,1.57,1.87):
 
         sk_gabor_img_1, sk_gabor_1 = gabor(g, frequency = 0.084, theta = the, sigma_x = 6.2)#1.77,1.37
@@ -627,6 +634,7 @@ def testGabor3(image):
         count = 0
         image_xcs = []
         # thres=image.shape[0]*image.shape[1]/8000
+
         for region in measure.regionprops(label_image):
             image_xc = np.zeros((image_w, 2))
             # if region.area < thres:  # or region.area > 700
@@ -643,7 +651,7 @@ def testGabor3(image):
             # print(region.feret_diameter_max)
             # print(region.axis_major_length)
             # print(region.orientation)
-            if region.orientation>-np.pi/3 and region.orientation<np.pi/3:
+            if region.orientation>-np.pi/3.5 and region.orientation<np.pi/3.5:
                 x = region.coords
                 for i in range(len(x)):
                     sk_frangi_img2[x[i][0]][x[i][1]] = 0
@@ -663,7 +671,7 @@ def testGabor3(image):
             # print(image_xc)
             image_xc[:, 1] = image_xc[:, 1] / image_xc[:, 0]
             image_xcs.append(image_xc.copy())
-        sk_frangi_img=sk_frangi_img2.copy()
+        sk_frangi_img[(sk_frangi_img==255)|(sk_frangi_img2==255)]=255
         wrikle_list = []
         for lis in image_xcs:
             wrikle = []
@@ -702,9 +710,14 @@ def testGabor3(image):
     # print(wrinkle_count/400/500.0)
     cv2.imshow("r1",mask_g)
     cv2.waitKey(0)
-    wrinkle_count=np.count_nonzero(mask_g)
-    wrinkle_level = wrinkle_count / (image.shape[0] * image.shape[1]) / 0.13 * 100
+    # wrinkle_count=np.count_nonzero(mask_g)
+    wrinkle_count = np.count_nonzero(sk_frangi_img)
+    wrinkle_level = wrinkle_count / (image.shape[0] * image.shape[1]) / 0.11 * 100
     print(wrinkle_count/(image.shape[0]*image.shape[1]))
+    cv2.imshow("r1", sk_frangi_img)
+    cv2.waitKey(0)
+    wrinkle_count=np.count_nonzero(sk_frangi_img)
+    print(wrinkle_count / (image.shape[0] * image.shape[1]))
     if wrinkle_level > 100:
         wrinkle_level = 100
     # mask_g = cv2.resize(mask_g, (i_shape[1], i_shape[0]))
@@ -821,14 +834,54 @@ def delete_hair(image1,image2):
         # print(np.mean(b[coords]))
     return image2
 
+
+def hes(image):
+    image1=cv2.cvtColor(image,cv2.COLOR_BGR2GRAY)
+    he=sato(image1,[2,4,6])
+    cv2.namedWindow("show",cv2.WINDOW_KEEPRATIO)
+    cv2.imshow("show",he)
+    cv2.waitKey(0)
+    # image1[he>0.5]=0
+    # cv2.imshow("show", image1)
+    # cv2.waitKey(0)
+
+def trans(image):
+    cv.namedWindow("show",cv.WINDOW_KEEPRATIO)
+    image_hsv=cv.cvtColor(image,cv.COLOR_BGR2HSV)
+    (h,s,v)=cv.split(image_hsv)
+    cv.imshow("show",h)
+    cv.waitKey(0)
+    cv.imshow("show", s)
+    cv.waitKey(0)
+    cv.imshow("show", v)
+    cv.waitKey(0)
+
+    image_lab=cv.cvtColor(image,cv.COLOR_BGR2LAB)
+    (l,a,b) = cv.split(image_lab)
+    cv.imshow("show", l)
+    cv.waitKey(0)
+    cv.imshow("show", a)
+    cv.waitKey(0)
+    cv.imshow("show", b)
+    cv.waitKey(0)
+    image_luv = cv.cvtColor(image, cv.COLOR_BGR2LUV)
+    (l, u,v) = cv.split(image_luv)
+    cv.imshow("show", l)
+    cv.waitKey(0)
+    cv.imshow("show", u)
+    cv.waitKey(0)
+    cv.imshow("show", v)
+    cv.waitKey(0)
+
 #使用图像增强会是个很不错的方法
 if __name__ == '__main__':
 
-    # path = r"E:\faces\face\1.jpg"
-    path = r"E:\forehead\3.jpg"
+    # path = r"E:\faces\face\3.jpg"
+    # # path = r"E:\forehead\3.jpg"
     # # path = r"E:\faces\42.png"
     # # path = r"E:\SU\sources\Wrinkles_detection\realtest\2.jpg"
-    image = cv2.imread(path, -1)
+    # image = cv2.imread(path, -1)
+    # # hes(image)
     # path = r"sk_gabor_img_1.png"
     # image1 = cv2.imread(path, -1)
     # im=delete_hair(image,image1)
@@ -844,14 +897,19 @@ if __name__ == '__main__':
     # print(lev)
 
 
-    # path = r"E:\faces\face\1.jpg"
-    # # path = r"E:\SU\sources\Wrinkles_detection\wrinkle\muouwen\8.PNG"
+    path = r"E:\faces\face\1.jpg"
+    path = r"E:\faces\face\1.jpg"
+    # path = r"E:\SU\sources\Wrinkles_detection\wrinkle\muouwen\8.PNG"
     # path = r"E:\faces\1227\b\2.png"
     # path = r"E:\faces\41.png"
-    # # path = r"E:\faces\12.jpg"
-    # image = cv2.imread(path, -1)
-    image1 ,lev = testGabor3(image)
+    # path = r"E:\faces\12.jpg"
+    image = cv2.imread(path, -1)
     cv2.namedWindow("show", cv2.WINDOW_KEEPRATIO)
+    cv2.imshow("show", image)
+    cv2.waitKey(0)
+    # trans(image)
+    image1 ,lev = testGabor3(image)
+
     cv2.imshow("show", image1)
     cv2.waitKey(0)
     print(lev)

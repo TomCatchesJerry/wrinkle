@@ -2,7 +2,7 @@ import mediapipe as mp
 import cv2
 import matplotlib.pyplot as plt
 import numpy as np
-import open3d as o3d
+# import open3d as o3d
 
 def face_feature_all(pic):
     # pic是cv2读入的图，BGR三通道
@@ -19,7 +19,10 @@ def face_feature_all(pic):
             min_detection_confidence=0.5) as face_mesh:
         calface_dec = face_mesh.process(rgb)
     # 得到人脸边界
-    fadot = calface_dec.multi_face_landmarks[0]
+    fa_lms=calface_dec.multi_face_landmarks
+    if not fa_lms:
+        return np.zeros((500, 2))
+    fadot = fa_lms[0]
     fa_dot = np.zeros((len(fadot.landmark), 2))
 
     for i in range(len(fadot.landmark)):
